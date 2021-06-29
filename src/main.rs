@@ -1,26 +1,14 @@
 use exif;
-use std::env;
+use std::path::PathBuf;
+use structopt::StructOpt;
 
+#[derive(StructOpt, Debug)]
 struct Opts {
-    input_file: String,
-    // output_file: String,
+    input_file: PathBuf,
+    output_file: PathBuf,
 }
 
-impl Opts {
-    fn from_args(args: &Vec<String>) -> Result<Opts, &str> {
-        if args.len() < 2 {
-            return Err("Commandline arguments missing, dunno what to do!");
-        }
-        let input_file = &args[1];
-        // let output_file = &args[2];
-        return Ok(Opts {
-            input_file: input_file.to_string(),
-            // output_file: output_file.to_string(),
-        });
-    }
-}
-
-fn read_exif(path: String) {
+fn read_exif(path: PathBuf) {
     let file = std::fs::File::open(path).expect("File doesn't exist");
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
@@ -40,9 +28,7 @@ fn read_exif(path: String) {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    match Opts::from_args(&args) {
-        Ok(opts) => read_exif(opts.input_file),
-        Err(error_str) => println!("Error:{}", error_str),
-    }
+    let args = Opts::from_args();
+    println!("{:?}", args);
+    read_exif(args.input_file);
 }
