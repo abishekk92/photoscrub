@@ -39,27 +39,29 @@ arg_enum! {
     }
 }
 
-fn read_exif(path: PathBuf) {
+fn read_exif(path: PathBuf) -> Result<exif::Exif, exif::Error> {
     let file = std::fs::File::open(path).expect("File doesn't exist");
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
-    let exif = exifreader
-        .read_from_container(&mut bufreader)
-        .expect("Can't read from container");
+    return exifreader.read_from_container(&mut bufreader);
+}
+
+fn print_metadata(exif: exif::Exif) {
     for f in exif.fields() {
-        if !f.tag.to_string().contains("GPS") {
-            println!(
-                "{} {} {}",
-                f.tag,
-                f.ifd_num,
-                f.display_value().with_unit(&exif)
-            );
-        }
+        println!(
+            "{} {} {}",
+            f.tag,
+            f.ifd_num,
+            f.display_value().with_unit(&exif)
+        );
     }
 }
 
 fn main() {
     let args = Opts::from_args();
-    println!("{:?}", args);
-    read_exif(args.input_file);
+    let exif = read_exif(args.input_file).expect("File not found");
+    println!("\nThe image contains following metadata");
+    println!("\n------\n");
+    print_metadata(exif);
+    println!("\n------\n");
 }
