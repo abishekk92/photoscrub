@@ -1,8 +1,6 @@
 use exif;
 use std::path::PathBuf;
-use std::str::FromStr;
-use std::string::ParseError;
-use structopt::StructOpt;
+use structopt::{clap::arg_enum, StructOpt};
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -32,29 +30,12 @@ enum Command {
     },
 }
 
-#[derive(StructOpt, Debug)]
-enum Filter {
-    All,
-    Device,
-    Geo,
-}
-
-impl FromStr for Filter {
-    type Err = ParseError;
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        match input.to_lowercase().as_ref() {
-            "all" => Ok(Filter::All),
-            "device" => Ok(Filter::Device),
-            "geo" => Ok(Filter::Geo),
-            // Returns all by default
-            _ => Ok(Filter::All),
-        }
-    }
-}
-
-impl Filter {
-    fn variants() -> [&'static str; 3] {
-        return ["all", "device", "geo"];
+arg_enum! {
+    #[derive(StructOpt, Debug)]
+    enum Filter {
+        All,
+        Device,
+        Geo,
     }
 }
 
