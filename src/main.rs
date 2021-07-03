@@ -12,33 +12,25 @@ struct Opts {
     input_file: PathBuf,
     #[structopt(subcommand)]
     cmd: Option<Command>,
+    #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
+    filter: Filter,
 }
 
 #[derive(StructOpt, Debug)]
-// Ideally filter should be more generalizable
-// TODO Find a way to avoid repeating filter
 enum Command {
     List {
-        #[structopt(possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
         #[structopt(short, long)]
         show: bool,
     },
     Scrub {
-        #[structopt(possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
         #[structopt(parse(from_os_str), short)]
         output_file: Option<PathBuf>,
     },
     Overwrite {
-        #[structopt(possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
         #[structopt(parse(from_os_str), short)]
         output_file: Option<PathBuf>,
     },
 }
-
-//TODO Document which fields constitute as device ids vs geo ids.
 
 arg_enum! {
     #[derive(StructOpt, Debug, PartialEq)]
@@ -56,76 +48,60 @@ fn read_exif(path: PathBuf) -> Result<exif::Exif, exif::Error> {
     return exifreader.read_from_container(&mut bufreader);
 }
 
+fn filter_fields<'a>(
+    exif_data: &'a exif::Exif,
+    filter: &'a crate::Filter,
+) -> impl Iterator<Item = &'a exif::Field> {
+    return exif_data.fields().filter(move |&x| match filter {
+        crate::Filter::All => true,
+        crate::Filter::Geo => x.tag.to_string().contains("GPS"),
+        crate::Filter::Device => match x.tag.to_string().as_ref() {
+            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
+            _ => false,
+        },
+    });
+}
+
+fn print_metdata<'a>(fields: impl Iterator<Item = &'a exif::Field>, show: bool) {
+    for f in fields {
+        if show {
+            println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+        } else {
+            println!("{} {} ******", f.tag, f.ifd_num);
+        }
+    }
+}
+
+fn scrub<'a>(fields: impl Iterator<Item = &'a exif::Field>, output_file: PathBuf) {
+    let mut writer = Writer::new();
+    let mut buf = std::io::Cursor::new(Vec::new());
+    let mut count: i8 = 0;
+    for f in fields {
+        println!("Scrubbing {} {} ******", f.tag, f.ifd_num);
+        writer.push_field(&f);
+        count += 1;
+    }
+    if count > 0 {
+        writer.write(&mut buf, false).expect("asdfasfsa");
+        println!("{:?}", buf.into_inner())
+    }
+}
+
+fn overwrite<'a>(fields: impl Iterator<Item = &'a exif::Field>, output_file: PathBuf) {
+    for f in fields {
+        println!("Overwriting {} {} ******", f.tag, f.ifd_num);
+    }
+}
+
 fn main() {
     let args = Opts::from_args();
-    let exif = read_exif(args.input_file).expect("File not found");
+    let exif_data = read_exif(args.input_file).expect("File not found");
+    let filtered = filter_fields(&exif_data, &args.filter);
 
     match args.cmd {
-        Some(Command::List { filter, show }) => {
-            println!("Metadata");
-            let fields = exif.fields().filter(|x| match filter {
-                crate::Filter::All => true,
-                crate::Filter::Geo => x.tag.to_string().contains("GPS"),
-                crate::Filter::Device => {
-                    x.tag.to_string() == "Make" || x.tag.to_string() == "Model"
-                }
-            });
-            for f in fields {
-                if show {
-                    println!(
-                        "{} {} {}",
-                        f.tag,
-                        f.ifd_num,
-                        f.display_value().with_unit(())
-                    );
-                } else {
-                    println!("{} {} ******", f.tag, f.ifd_num);
-                }
-            }
-        }
-        // Lack of support for keyword arguments make this function call look ugly
-        // TODO Figure out a better way to do this.
-        Some(Command::Scrub {
-            filter,
-            output_file,
-        }) => {
-            println!("Metadata");
-            let fields = exif.fields().filter(|x| match filter {
-                crate::Filter::All => !true,
-                crate::Filter::Geo => !x.tag.to_string().contains("GPS"),
-                crate::Filter::Device => {
-                    !(x.tag.to_string() == "Make" || x.tag.to_string() == "Model")
-                }
-            });
-            let mut writer = Writer::new();
-            let mut buf = std::io::Cursor::new(Vec::new());
-            let mut count: i8 = 0;
-            for f in fields {
-                println!("Scrubbing {} {} ******", f.tag, f.ifd_num);
-                writer.push_field(&f);
-                count += 1;
-            }
-            if count > 0 {
-                writer.write(&mut buf, false).expect("asdfasfsa");
-                println!("{:?}", buf.into_inner())
-            }
-        }
-        Some(Command::Overwrite {
-            filter,
-            output_file,
-        }) => {
-            println!("Metadata");
-            let fields = exif.fields().filter(|x| match filter {
-                crate::Filter::All => true,
-                crate::Filter::Geo => x.tag.to_string().contains("GPS"),
-                crate::Filter::Device => {
-                    x.tag.to_string() == "Make" || x.tag.to_string() == "Model"
-                }
-            });
-            for f in fields {
-                println!("Overwriting {} {} ******", f.tag, f.ifd_num);
-            }
-        }
+        Some(Command::List { show }) => print_metdata(filtered, show),
+        Some(Command::Scrub { output_file }) => scrub(filtered, output_file.unwrap()),
+        Some(Command::Overwrite { output_file }) => overwrite(filtered, output_file.unwrap()),
         _ => println!("Not supported yet"),
     }
 }
