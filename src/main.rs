@@ -1,10 +1,18 @@
 #![allow(unused_variables)]
 use exif;
 use exif::experimental::Writer;
+use img_parts::jpeg::Jpeg;
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
 
-//TODO Figure out autogenerate of documentation
+//TODO
+// * Figure out how to write the exif data to a new file.
+// * Integrate with a faker and overwrite.
+// * Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
+// * Figure out a way to organize the code better, there is a lot of shared data passed around.
+// * Figure out how to autogenerate documentation.
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -77,14 +85,13 @@ fn scrub<'a>(fields: impl Iterator<Item = &'a exif::Field>, output_file: PathBuf
     let mut buf = std::io::Cursor::new(Vec::new());
     let mut count: i8 = 0;
     for f in fields {
-        println!("Scrubbing {} {} ******", f.tag, f.ifd_num);
-        writer.push_field(&f);
         count += 1;
     }
     if count > 0 {
         writer.write(&mut buf, false).expect("asdfasfsa");
-        println!("{:?}", buf.into_inner())
     }
+    let mut output = File::create(output_file).expect("Can't create file");
+    output.write_all(&buf.into_inner()).expect("Failed writing")
 }
 
 fn overwrite<'a>(fields: impl Iterator<Item = &'a exif::Field>, output_file: PathBuf) {
