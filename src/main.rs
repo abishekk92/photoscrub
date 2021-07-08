@@ -8,11 +8,11 @@ use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
 
 //TODO
-// * Figure out how to write the exif data to a new file.
-// * Integrate with a faker and overwrite.
-// * Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
-// * Figure out a way to organize the code better, there is a lot of shared data passed around.
-// * Figure out how to autogenerate documentation.
+// * [ ] Figure out how to write the jpeg + exif data to a new file.
+// * [ ] Integrate with a faker and overwrite.
+// * [ ] Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
+// * [ ] Figure out a way to organize the code better, there is a lot of shared data passed around.
+// * [ ] Figure out how to autogenerate documentation.
 
 #[derive(StructOpt, Debug)]
 struct Opts {
