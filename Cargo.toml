@@ -7,5 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+img-parts = "0.2.3"
 kamadak-exif = "0.5.4"
 structopt = "0.3.21"

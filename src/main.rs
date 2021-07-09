@@ -1,6 +1,8 @@
 #![allow(unused_variables)]
 mod exif_utils;
+mod image;
 
+use crate::image::Image;
 use exif;
 use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
@@ -63,8 +65,9 @@ fn filter_fields<'a>(
 
 fn main() {
     let args = Opts::from_args();
-    let exif_data = exif_utils::read_exif(args.input_file).expect("File not found");
-    let filtered = filter_fields(&exif_data, &args.filter);
+    // let exif_data = exif_utils::read_exif(&args.input_file).expect("File not found");
+    let image = Image::from_file(&args.input_file);
+    let filtered = filter_fields(&image.metadata.raw, &args.filter);
 
     match args.cmd {
         Some(Command::List { show }) => exif_utils::print_metdata(filtered, show),

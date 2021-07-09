@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-pub fn read_exif(path: PathBuf) -> Result<exif::Exif, exif::Error> {
+pub fn read_exif(path: &PathBuf) -> Result<exif::Exif, exif::Error> {
     let file = File::open(path).expect("File doesn't exist");
     let mut bufreader = std::io::BufReader::new(&file);
     let exifreader = exif::Reader::new();
