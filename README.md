@@ -2,12 +2,6 @@
 
 Scrub geotag and other metadata from your image files.
 
-## Usage
-
-
-
-# photoscrub 0.1.0
-
 ```
 USAGE:
     photoscrub --filter <filter> -i <input-file> [SUBCOMMAND]
