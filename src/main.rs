@@ -67,7 +67,7 @@ fn main() {
     let args = Opts::from_args();
     // let exif_data = exif_utils::read_exif(&args.input_file).expect("File not found");
     let image = Image::from_file(&args.input_file);
-    let filtered = filter_fields(&image.metadata.raw, &args.filter);
+    let filtered = filter_fields(&image.exif.raw, &args.filter);
 
     match args.cmd {
         Some(Command::List { show }) => exif_utils::print_metdata(filtered, show),
