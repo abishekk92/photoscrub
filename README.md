@@ -4,32 +4,21 @@ Scrub geotag and other metadata from your image files.
 
 ## Usage
 
+photoscrub 0.1.0
 
-# Default
+USAGE:
+    photoscrub --filter <filter> -i <input-file> [SUBCOMMAND]
 
-Applies sane default, removes all personally identifiable information.
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
 
-```
-photoscrub <FILE> <OUTFILE>
-````
+OPTIONS:
+    -f, --filter <filter>     [possible values: All, Device, Geo]
+    -i <input-file>
 
-
-# View all metadata
-
-```
-photoscrub <FILE> list (all|device|geo) -show
-```
-
-
-# Scrub all metadata
-
-```
-photoscrub <FILE> scrub (all|device|geo) <OUTFILE>
-```
-
-
-# Overwrite all metadata
-
-```
-photoscrub <FILE> overwrite (all|device|geo) <OUTFILE>
-```
+SUBCOMMANDS:
+    help         Prints this message or the help of the given subcommand(s)
+    list
+    overwrite
+    scrub
