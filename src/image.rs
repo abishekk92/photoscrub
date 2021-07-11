@@ -1,8 +1,9 @@
 use exif;
 use exif::experimental::Writer;
 use img_parts::jpeg::Jpeg;
+use img_parts::Bytes;
+use img_parts::ImageEXIF;
 use std::fs::{self, File};
-use std::io::Write;
 use std::path::PathBuf;
 
 use crate::exif_utils;
@@ -21,21 +22,16 @@ impl Image {
         let raw_exif = exif_utils::read_exif(&filename).unwrap();
         let input = fs::read(filename).unwrap();
         let jpeg = Jpeg::from_bytes(input.into()).unwrap();
-        return Image {
+        Self {
             exif: ImageMetadata { raw: raw_exif },
             raw: jpeg,
-        };
-    }
-
-    pub fn write(self: &Self, output_file: &PathBuf) {
-        let mut output = File::create(output_file).expect("Can't create file");
-        let exif = self.exif.to_bytes();
-        output.write_all(&exif).expect("Failed writing")
+        }
     }
 }
 
+//TODO: Each of the function appears generic enough, see if you can move them to Rusty traits.
 impl ImageMetadata {
-    pub fn print(self: &Self, show: bool) {
+    pub fn print(self, show: bool) {
         for f in self.raw.fields() {
             if show {
                 println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
@@ -45,15 +41,25 @@ impl ImageMetadata {
         }
     }
 
-    pub fn to_bytes(self: &Self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Bytes {
         let mut writer = Writer::new();
         let mut buf = std::io::Cursor::new(Vec::new());
         for f in self.raw.fields() {
             writer.push_field(&f);
         }
         writer.write(&mut buf, false).expect("Unable to write");
-        return buf.into_inner();
+        Bytes::copy_from_slice(&buf.into_inner())
     }
+}
+
+pub fn write_image(outfile: &PathBuf, image: Image) {
+    let bytes = image.exif.to_bytes();
+    let out = File::create(outfile).expect("Unable to create file");
+    let mut jpeg = image.raw;
+    jpeg.set_exif(Some(bytes));
+    jpeg.encoder()
+        .write_to(out)
+        .expect("Unable to write to file");
 }
 
 mod test {
@@ -78,8 +84,7 @@ mod test {
 
     #[test]
     fn test_write_image() {
-        let image_path = PathBuf::from("test_images/meme.jpeg");
-        let image = Image::from_file(&image_path);
-        image.write(&PathBuf::from("out.Jpeg"));
+        let image = Image::from_file(&PathBuf::from("tests_images/meme.jpeg"));
+        write_image(&PathBuf::from("out.jpeg"), image)
     }
 }
