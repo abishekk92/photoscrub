@@ -6,24 +6,23 @@ use img_parts::ImageEXIF;
 use std::fs::{self, File};
 use std::path::PathBuf;
 
-use crate::exif_utils;
-
 pub struct Image {
     pub raw: Jpeg,
     pub exif: ImageMetadata,
 }
 
 pub struct ImageMetadata {
+    //Store this as raw bytes, instead of internal representation.
     pub raw: exif::Exif,
 }
 
 impl Image {
     pub fn from_file(filename: &PathBuf) -> Self {
-        let raw_exif = exif_utils::read_exif(&filename).unwrap();
+        let raw_exif = ImageMetadata::from_file(filename).unwrap();
         let input = fs::read(filename).unwrap();
         let jpeg = Jpeg::from_bytes(input.into()).unwrap();
         Self {
-            exif: ImageMetadata { raw: raw_exif },
+            exif: raw_exif,
             raw: jpeg,
         }
     }
@@ -31,6 +30,14 @@ impl Image {
 
 //TODO: Each of the function appears generic enough, see if you can move them to Rusty traits.
 impl ImageMetadata {
+    pub fn from_file(filename: &PathBuf) -> Result<Self, exif::Error> {
+        let file = File::open(filename).expect("File doesn't exist");
+        let mut bufreader = std::io::BufReader::new(&file);
+        let exifreader = exif::Reader::new();
+        let exif = exifreader.read_from_container(&mut bufreader)?;
+        Ok(Self { raw: exif })
+    }
+
     pub fn print(self, show: bool) {
         for f in self.raw.fields() {
             if show {
@@ -66,8 +73,8 @@ mod test {
     use super::*;
     #[test]
     #[ignore]
-    fn test_load_read() {
-        let image_path = PathBuf::from("test_images/meme.jpeg");
+    fn tests_load_read() {
+        let image_path = PathBuf::from("testsimages/meme.jpeg");
         let image = Image::from_file(&image_path);
         image.exif.print(true);
         println!("{:?}", image.raw)
@@ -75,15 +82,16 @@ mod test {
 
     #[test]
     #[ignore]
-    fn test_to_bytes() {
-        let image_path = PathBuf::from("test_images/meme.jpeg");
+    fn tests_to_bytes() {
+        let image_path = PathBuf::from("testsimages/meme.jpeg");
         let image = Image::from_file(&image_path);
         let bytes = image.exif.to_bytes();
         println!("{:?}", bytes);
     }
 
     #[test]
-    fn test_write_image() {
+    #[ignore]
+    fn tests_write_image() {
         let image = Image::from_file(&PathBuf::from("tests_images/meme.jpeg"));
         write_image(&PathBuf::from("out.jpeg"), image)
     }

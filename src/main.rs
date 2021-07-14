@@ -1,18 +1,16 @@
 #![allow(unused_variables)]
-mod exif_utils;
 mod image;
 
-use crate::image::Image;
-use exif;
+use crate::image::{write_image, Image};
 use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
 
 //TODO
 // * [X] Figure out how to write the jpeg + exif data to a new file.
 // * [X] Figure out a way to organize the code better, there is a lot of shared data passed around.
-// * [ ] Figure out how to autogenerate documentation.
-// * [ ] Integrate with a faker and overwrite.
 // * [ ] Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
+// * [ ] Integrate with a faker and overwrite.
+// * [ ] Figure out how to autogenerate documentation.
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -32,11 +30,11 @@ enum Command {
     },
     Scrub {
         #[structopt(parse(from_os_str), short)]
-        output_file: Option<PathBuf>,
+        output_file: PathBuf,
     },
     Overwrite {
         #[structopt(parse(from_os_str), short)]
-        output_file: Option<PathBuf>,
+        output_file: PathBuf,
     },
 }
 
@@ -49,32 +47,29 @@ arg_enum! {
     }
 }
 
-fn filter_fields<'a>(
-    exif_data: &'a exif::Exif,
-    filter: &'a crate::Filter,
-) -> impl Iterator<Item = &'a exif::Field> {
-    return exif_data.fields().filter(move |&x| match filter {
-        crate::Filter::All => true,
-        crate::Filter::Geo => x.tag.to_string().contains("GPS"),
-        crate::Filter::Device => match x.tag.to_string().as_ref() {
-            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
-            _ => false,
-        },
-    });
-}
+// fn filter_fields<'a>(
+//     exif_data: &'a exif::Exif,
+//     filter: &'a crate::Filter,
+// ) -> impl Iterator<Item = &'a exif::Field> {
+//     return exif_data.fields().filter(move |&x| match filter {
+//         crate::Filter::All => true,
+//         crate::Filter::Geo => x.tag.to_string().contains("GPS"),
+//         crate::Filter::Device => match x.tag.to_string().as_ref() {
+//             "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
+//             _ => false,
+//         },
+//     });
+// }
 
 fn main() {
     let args = Opts::from_args();
-    // let exif_data = exif_utils::read_exif(&args.input_file).expect("File not found");
     let image = Image::from_file(&args.input_file);
-    let filtered = filter_fields(&image.exif.raw, &args.filter);
+    // let filtered = filter_fields(&image.exif.raw, &args.filter);
 
     match args.cmd {
-        Some(Command::List { show }) => exif_utils::print_metdata(filtered, show),
-        Some(Command::Scrub { output_file }) => exif_utils::scrub(filtered, output_file.unwrap()),
-        Some(Command::Overwrite { output_file }) => {
-            exif_utils::overwrite(filtered, output_file.unwrap())
-        }
+        Some(Command::List { show }) => image.exif.print(show),
+        Some(Command::Scrub { output_file }) => write_image(&output_file, image),
+        Some(Command::Overwrite { output_file }) => write_image(&output_file, image),
         _ => println!("Not supported yet"),
     }
 }
