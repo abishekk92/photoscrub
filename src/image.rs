@@ -48,8 +48,10 @@ impl ImageMetadata {
     ) -> Result<Self, exif::Error> {
         let mut writer = Writer::new();
         let mut buf = std::io::Cursor::new(Vec::new());
+        let mut count = 0;
         for f in fields {
             writer.push_field(&f);
+            count += 1;
         }
         writer.write(&mut buf, false).expect("Unable to write");
         let exif = ImageMetadata::from_bytes(buf.into_inner())?;

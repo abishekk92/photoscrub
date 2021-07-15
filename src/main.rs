@@ -18,8 +18,6 @@ struct Opts {
     input_file: PathBuf,
     #[structopt(subcommand)]
     cmd: Command,
-    #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-    filter: Filter,
 }
 
 #[derive(StructOpt, Debug)]
@@ -27,14 +25,20 @@ enum Command {
     List {
         #[structopt(short, long)]
         show: bool,
+        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
+        filter: Filter,
     },
     Scrub {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
+        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
+        filter: Filter,
     },
     Overwrite {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
+        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
+        filter: Filter,
     },
 }
 
@@ -64,20 +68,28 @@ fn filter_fields<'a>(
 fn main() {
     let args = Opts::from_args();
     let mut image = Image::from_file(&args.input_file);
-    let filtered = filter_fields(&image.exif.raw, &args.filter);
 
     match args.cmd {
-        Command::List { show } => {
+        Command::List { show, filter } => {
+            let filtered = filter_fields(&image.exif.raw, &filter);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             image.exif.print(show);
         }
-        Command::Scrub { output_file } => {
+        Command::Scrub {
+            output_file,
+            filter,
+        } => {
             //Scrub
+            let filtered = filter_fields(&image.exif.raw, &filter);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }
-        Command::Overwrite { output_file } => {
+        Command::Overwrite {
+            output_file,
+            filter,
+        } => {
             //Overwrite
+            let filtered = filter_fields(&image.exif.raw, &filter);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }
