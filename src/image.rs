@@ -12,7 +12,6 @@ pub struct Image {
 }
 
 pub struct ImageMetadata {
-    //Store this as raw bytes, instead of internal representation.
     pub raw: exif::Exif,
 }
 
@@ -38,16 +37,26 @@ impl ImageMetadata {
         Ok(Self { raw: exif })
     }
 
-    pub fn print(self, show: bool) {
-        for f in self.raw.fields() {
-            if show {
-                println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
-            } else {
-                println!("{} {} ******", f.tag, f.ifd_num);
-            }
-        }
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, exif::Error> {
+        let exifreader = exif::Reader::new();
+        let exif = exifreader.read_raw(bytes)?;
+        Ok(Self { raw: exif })
     }
 
+    pub fn from_fields<'a>(
+        fields: impl Iterator<Item = &'a exif::Field>,
+    ) -> Result<Self, exif::Error> {
+        let mut writer = Writer::new();
+        let mut buf = std::io::Cursor::new(Vec::new());
+        for f in fields {
+            writer.push_field(&f);
+        }
+        writer.write(&mut buf, false).expect("Unable to write");
+        let exif = ImageMetadata::from_bytes(buf.into_inner())?;
+        Ok(exif)
+    }
+
+    //Possible code duplication, refactor
     pub fn to_bytes(self) -> Bytes {
         let mut writer = Writer::new();
         let mut buf = std::io::Cursor::new(Vec::new());
@@ -56,6 +65,16 @@ impl ImageMetadata {
         }
         writer.write(&mut buf, false).expect("Unable to write");
         Bytes::copy_from_slice(&buf.into_inner())
+    }
+
+    pub fn print(self, show: bool) {
+        for f in self.raw.fields() {
+            if show {
+                println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+            } else {
+                println!("{} {} ******", f.tag, f.ifd_num);
+            }
+        }
     }
 }
 

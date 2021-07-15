@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 mod image;
 
-use crate::image::{write_image, Image};
+use crate::image::{write_image, Image, ImageMetadata};
 use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
 
@@ -17,7 +17,7 @@ struct Opts {
     #[structopt(parse(from_os_str), short)]
     input_file: PathBuf,
     #[structopt(subcommand)]
-    cmd: Option<Command>,
+    cmd: Command,
     #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
     filter: Filter,
 }
@@ -47,29 +47,39 @@ arg_enum! {
     }
 }
 
-// fn filter_fields<'a>(
-//     exif_data: &'a exif::Exif,
-//     filter: &'a crate::Filter,
-// ) -> impl Iterator<Item = &'a exif::Field> {
-//     return exif_data.fields().filter(move |&x| match filter {
-//         crate::Filter::All => true,
-//         crate::Filter::Geo => x.tag.to_string().contains("GPS"),
-//         crate::Filter::Device => match x.tag.to_string().as_ref() {
-//             "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
-//             _ => false,
-//         },
-//     });
-// }
+fn filter_fields<'a>(
+    exif_data: &'a exif::Exif,
+    filter: &'a crate::Filter,
+) -> impl Iterator<Item = &'a exif::Field> {
+    return exif_data.fields().filter(move |&x| match filter {
+        crate::Filter::All => true,
+        crate::Filter::Geo => x.tag.to_string().contains("GPS"),
+        crate::Filter::Device => match x.tag.to_string().as_ref() {
+            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
+            _ => false,
+        },
+    });
+}
 
 fn main() {
     let args = Opts::from_args();
-    let image = Image::from_file(&args.input_file);
-    // let filtered = filter_fields(&image.exif.raw, &args.filter);
+    let mut image = Image::from_file(&args.input_file);
+    let filtered = filter_fields(&image.exif.raw, &args.filter);
 
     match args.cmd {
-        Some(Command::List { show }) => image.exif.print(show),
-        Some(Command::Scrub { output_file }) => write_image(&output_file, image),
-        Some(Command::Overwrite { output_file }) => write_image(&output_file, image),
-        _ => println!("Not supported yet"),
+        Command::List { show } => {
+            image.exif = ImageMetadata::from_fields(filtered).unwrap();
+            image.exif.print(show);
+        }
+        Command::Scrub { output_file } => {
+            //Scrub
+            image.exif = ImageMetadata::from_fields(filtered).unwrap();
+            write_image(&output_file, image);
+        }
+        Command::Overwrite { output_file } => {
+            //Overwrite
+            image.exif = ImageMetadata::from_fields(filtered).unwrap();
+            write_image(&output_file, image);
+        }
     }
 }
