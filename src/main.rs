@@ -18,6 +18,8 @@ struct Opts {
     input_file: PathBuf,
     #[structopt(subcommand)]
     cmd: Command,
+    #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
+    filter: Option<Filter>,
 }
 
 #[derive(StructOpt, Debug)]
@@ -25,20 +27,14 @@ enum Command {
     List {
         #[structopt(short, long)]
         show: bool,
-        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Option<Filter>,
     },
     Scrub {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
-        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Option<Filter>,
     },
     Overwrite {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
-        #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Option<Filter>,
     },
 }
 
@@ -52,31 +48,26 @@ arg_enum! {
 fn main() {
     let args = Opts::from_args();
     let mut image = Image::from_file(&args.input_file);
+    let filtered = match args.filter {
+        Some(x) => image::filter_metadata(&image, image::ImageMetadataViews::All),
+        None => image::filter_metadata(
+            &image,
+            image::ImageMetadataViews::AllButPersonallyIdentifiable,
+        ),
+    };
 
     match args.cmd {
-        Command::List { show, filter } => {
-            let filtered = image::filter_metadata(&image, image::ImageMetadataViews::All);
+        Command::List { show } => {
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             image.exif.print(show);
         }
-        Command::Scrub {
-            output_file,
-            filter,
-        } => {
+        Command::Scrub { output_file } => {
             //Scrub
-            let filtered = image::filter_metadata(
-                &image,
-                image::ImageMetadataViews::AllButPersonallyIdentifiable,
-            );
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }
-        Command::Overwrite {
-            output_file,
-            filter,
-        } => {
+        Command::Overwrite { output_file } => {
             //Overwrite
-            let filtered = image::filter_metadata(&image, image::ImageMetadataViews::All);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }
