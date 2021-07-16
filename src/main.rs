@@ -8,7 +8,7 @@ use structopt::{clap::arg_enum, StructOpt};
 //TODO
 // * [X] Figure out how to write the jpeg + exif data to a new file.
 // * [X] Figure out a way to organize the code better, there is a lot of shared data passed around.
-// * [ ] Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
+// * [X] Resolve filter vs select. list wants to filter out and scrub and overwrite wants to use the values remaining after filter.
 // * [ ] Integrate with a faker and overwrite.
 // * [ ] Figure out how to autogenerate documentation.
 
@@ -26,19 +26,19 @@ enum Command {
         #[structopt(short, long)]
         show: bool,
         #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
+        filter: Option<Filter>,
     },
     Scrub {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
         #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
+        filter: Option<Filter>,
     },
     Overwrite {
         #[structopt(parse(from_os_str), short)]
         output_file: PathBuf,
         #[structopt(short, long, possible_values = &Filter::variants(), case_insensitive = true)]
-        filter: Filter,
+        filter: Option<Filter>,
     },
 }
 
@@ -46,23 +46,7 @@ arg_enum! {
     #[derive(StructOpt, Debug, PartialEq)]
     enum Filter {
         All,
-        Device,
-        Geo,
     }
-}
-
-fn filter_fields<'a>(
-    exif_data: &'a exif::Exif,
-    filter: &'a crate::Filter,
-) -> impl Iterator<Item = &'a exif::Field> {
-    return exif_data.fields().filter(move |&x| match filter {
-        crate::Filter::All => true,
-        crate::Filter::Geo => x.tag.to_string().contains("GPS"),
-        crate::Filter::Device => match x.tag.to_string().as_ref() {
-            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
-            _ => false,
-        },
-    });
 }
 
 fn main() {
@@ -71,7 +55,7 @@ fn main() {
 
     match args.cmd {
         Command::List { show, filter } => {
-            let filtered = filter_fields(&image.exif.raw, &filter);
+            let filtered = image::filter_metadata(&image, image::ImageMetadataViews::All);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             image.exif.print(show);
         }
@@ -80,7 +64,10 @@ fn main() {
             filter,
         } => {
             //Scrub
-            let filtered = filter_fields(&image.exif.raw, &filter);
+            let filtered = image::filter_metadata(
+                &image,
+                image::ImageMetadataViews::AllButPersonallyIdentifiable,
+            );
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }
@@ -89,7 +76,7 @@ fn main() {
             filter,
         } => {
             //Overwrite
-            let filtered = filter_fields(&image.exif.raw, &filter);
+            let filtered = image::filter_metadata(&image, image::ImageMetadataViews::All);
             image.exif = ImageMetadata::from_fields(filtered).unwrap();
             write_image(&output_file, image);
         }

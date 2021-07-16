@@ -80,6 +80,42 @@ impl ImageMetadata {
     }
 }
 
+#[derive(Debug)]
+pub enum ImageMetadataViews {
+    All,
+    AllButPersonallyIdentifiable,
+    PersonallyIdentifiable,
+    TimeStamp,
+}
+
+#[derive(Debug)]
+pub enum PersonallyIdentifiable {
+    Geo,
+    Device,
+}
+
+pub fn is_personally_identifiable(field: &exif::Field) -> bool {
+    match field.tag.to_string() {
+        field_str if field_str.contains("GPS") => true,
+        field_str => match field_str.as_ref() {
+            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
+            _ => false,
+        },
+    }
+}
+
+pub fn filter_metadata<'a>(
+    image: &'a Image,
+    view: ImageMetadataViews,
+) -> impl Iterator<Item = &'a exif::Field> {
+    return image.exif.raw.fields().filter(move |&x| match view {
+        ImageMetadataViews::All => true,
+        ImageMetadataViews::AllButPersonallyIdentifiable => !is_personally_identifiable(x),
+        ImageMetadataViews::PersonallyIdentifiable => is_personally_identifiable(x),
+        ImageMetadataViews::TimeStamp => x.tag.to_string().contains("DateTime"),
+    });
+}
+
 pub fn write_image(outfile: &PathBuf, image: Image) {
     let bytes = image.exif.to_bytes();
     let out = File::create(outfile).expect("Unable to create file");
@@ -95,7 +131,7 @@ mod test {
     #[test]
     #[ignore]
     fn tests_load_read() {
-        let image_path = PathBuf::from("testsimages/meme.jpeg");
+        let image_path = PathBuf::from("test_images/meme.jpeg");
         let image = Image::from_file(&image_path);
         image.exif.print(true);
         println!("{:?}", image.raw)
@@ -104,7 +140,7 @@ mod test {
     #[test]
     #[ignore]
     fn tests_to_bytes() {
-        let image_path = PathBuf::from("testsimages/meme.jpeg");
+        let image_path = PathBuf::from("test_images/meme.jpeg");
         let image = Image::from_file(&image_path);
         let bytes = image.exif.to_bytes();
         println!("{:?}", bytes);
@@ -113,7 +149,17 @@ mod test {
     #[test]
     #[ignore]
     fn tests_write_image() {
-        let image = Image::from_file(&PathBuf::from("tests_images/meme.jpeg"));
+        let image = Image::from_file(&PathBuf::from("test_images/meme.jpeg"));
         write_image(&PathBuf::from("out.jpeg"), image)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_filter_metadata() {
+        let image = Image::from_file(&PathBuf::from("test_images/meme.jpeg"));
+        let filtered = filter_metadata(&image, ImageMetadataViews::AllButPersonallyIdentifiable);
+        for f in filtered {
+            println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+        }
     }
 }
