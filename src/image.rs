@@ -94,13 +94,18 @@ pub enum PersonallyIdentifiable {
     Device,
 }
 
-pub fn is_personally_identifiable(field: &exif::Field) -> bool {
-    match field.tag.to_string() {
-        field_str if field_str.contains("GPS") => true,
-        field_str => match field_str.as_ref() {
-            "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
-            _ => false,
-        },
+fn is_personally_identifiable(field: &exif::Field) -> bool {
+    is_geo(field) || is_device(field)
+}
+
+fn is_geo(field: &exif::Field) -> bool {
+    field.tag.to_string().contains("GPS")
+}
+
+fn is_device(field: &exif::Field) -> bool {
+    match field.tag.to_string().as_ref() {
+        "Software" | "Make" | "Model" | "LensMake" | "LensModel" => true,
+        _ => false,
     }
 }
 
@@ -126,6 +131,7 @@ pub fn write_image(outfile: &PathBuf, image: Image) {
         .expect("Unable to write to file");
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
     #[test]
