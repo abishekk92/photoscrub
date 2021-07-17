@@ -71,10 +71,14 @@ impl ImageMetadata {
 
     pub fn print(self, show: bool) {
         for f in self.raw.fields() {
-            if show {
-                println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+            if is_personally_identifiable(f) {
+                if show {
+                    println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+                } else {
+                    println!("{} {} ******", f.tag, f.ifd_num);
+                }
             } else {
-                println!("{} {} ******", f.tag, f.ifd_num);
+                println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
             }
         }
     }
@@ -83,13 +87,8 @@ impl ImageMetadata {
 #[derive(Debug)]
 pub enum ImageMetadataViews {
     All,
-    AllButPersonallyIdentifiable,
     PersonallyIdentifiable,
     TimeStamp,
-}
-
-#[derive(Debug)]
-pub enum PersonallyIdentifiable {
     Geo,
     Device,
 }
@@ -112,12 +111,21 @@ fn is_device(field: &exif::Field) -> bool {
 pub fn filter_metadata<'a>(
     image: &'a Image,
     view: ImageMetadataViews,
+    flip: bool,
 ) -> impl Iterator<Item = &'a exif::Field> {
-    return image.exif.raw.fields().filter(move |&x| match view {
-        ImageMetadataViews::All => true,
-        ImageMetadataViews::AllButPersonallyIdentifiable => !is_personally_identifiable(x),
-        ImageMetadataViews::PersonallyIdentifiable => is_personally_identifiable(x),
-        ImageMetadataViews::TimeStamp => x.tag.to_string().contains("DateTime"),
+    return image.exif.raw.fields().filter(move |&x| {
+        let result = match view {
+            ImageMetadataViews::All => true,
+            ImageMetadataViews::PersonallyIdentifiable => is_personally_identifiable(x),
+            ImageMetadataViews::TimeStamp => x.tag.to_string().contains("DateTime"),
+            ImageMetadataViews::Geo => is_geo(x),
+            ImageMetadataViews::Device => is_device(x),
+        };
+        if flip {
+            !result
+        } else {
+            result
+        }
     });
 }
 
@@ -163,7 +171,7 @@ mod test {
     #[ignore]
     fn test_filter_metadata() {
         let image = Image::from_file(&PathBuf::from("test_images/meme.jpeg"));
-        let filtered = filter_metadata(&image, ImageMetadataViews::AllButPersonallyIdentifiable);
+        let filtered = filter_metadata(&image, ImageMetadataViews::PersonallyIdentifiable, false);
         for f in filtered {
             println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
         }
