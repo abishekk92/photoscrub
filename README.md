@@ -1,17 +1,17 @@
-### PhotoScrub
+Photoscrub
+==========
 
-Scrub geotag and other metadata from your image files.
+Scrub, overwrite and debug exifdata.
 
 ```
 USAGE:
-    photoscrub --filter <filter> -i <input-file> [SUBCOMMAND]
+    photoscrub -i <input-file> <SUBCOMMAND>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-    -f, --filter <filter>     [possible values: All, Device, Geo]
     -i <input-file>
 
 SUBCOMMANDS:
