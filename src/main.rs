@@ -2,8 +2,13 @@
 mod image;
 
 use crate::image::{write_image, Image, ImageMetadata};
+use fake::faker::chrono::raw::*;
+use fake::faker::lorem::raw::*;
+use fake::locales::EN;
+use fake::Fake;
 use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
+use titlecase::titlecase;
 
 //TODO
 // * [X] Figure out how to write the jpeg + exif data to a new file.
@@ -103,10 +108,30 @@ fn main() {
             filter,
         } => {
             //Split the iterator into two, overwrite one and the merge the remaining.
-            let filtered = filter_fields(&image, filter, false);
+            // let retain = filter_fields(&image, filter, true);
+            let overwrite = filter_fields(&image, filter, false);
+            for f in overwrite {
+                match f.tag {
+                    exif::Tag::DateTime
+                    | exif::Tag::DateTimeOriginal
+                    | exif::Tag::DateTimeDigitized => {
+                        let fake_value: String = DateTime(EN).fake();
+                        println!("{} {} {:?}", f.tag, f.ifd_num, fake_value);
+                    }
+                    _ => {
+                        if let exif::Value::Ascii(_) = f.value {
+                            let fake_value = titlecase(Word(EN).fake());
+                            println!("{} {} {}", f.tag, f.ifd_num, fake_value);
+                        // println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+                        } else {
+                            println!("{} {} {}", f.tag, f.ifd_num, f.display_value().with_unit(f));
+                        }
+                    }
+                };
+            }
             //Overwrite
-            image.exif = ImageMetadata::from_fields(filtered).unwrap();
-            write_image(&output_file, image);
+            // image.exif = ImageMetadata::from_fields(filtered).unwrap();
+            // write_image(&output_file, image);
         }
     }
 }
